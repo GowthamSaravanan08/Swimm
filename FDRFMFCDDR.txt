@@ -1,40 +1,40 @@
-     ‚**********************************************************************
-     ‚* €Program Name..:‚FDRFMFCDDR                                         *
-     ‚* €Program Type..:‚SqlRpgle                                          *
-     ‚* €Description...:‚Manual Fuel Outstanding Customers - Add/Display   *
-     ‚* €              :‚Comments                                          *
-     ‚* €Author........:‚Thirulogachandar Mohan                            *
-     ‚* €Creation Date.:‚06/11/2020                                        *
-     ‚* €Project ID....:‚330690M                                           *
-     ‚* €Function......:‚Add/Display Comments                              *
-     ‚**********************************************************************
-     ‚* Modifications                                                      *
-     ‚*--------------------------------------------------------------------*
-     ‚* Changed by :                          Date:                        *
-     ‚* Project#   :                          Tag :                        *
-     ‚* Description:                                                       *
-     ‚*--------------------------------------------------------------------*
-     ‚* File Declaration                                                   *
-     ‚*--------------------------------------------------------------------*
+     â€š**********************************************************************
+     â€š* â‚¬Program Name..:â€šFDRFMFCDDR                                         *
+     â€š* â‚¬Program Type..:â€šSqlRpgle                                          *
+     â€š* â‚¬Description...:â€šManual Fuel Outstanding Customers - Add/Display   *
+     â€š* â‚¬              :â€šComments                                          *
+     â€š* â‚¬Author........:â€šThirulogachandar Mohan                            *
+     â€š* â‚¬Creation Date.:â€š06/11/2020                                        *
+     â€š* â‚¬Project ID....:â€š330690M                                           *
+     â€š* â‚¬Function......:â€šAdd/Display Comments                              *
+     â€š**********************************************************************
+     â€š* Modifications                                                      *
+     â€š*--------------------------------------------------------------------*
+     â€š* Changed by :                          Date:                        *
+     â€š* Project#   :                          Tag :                        *
+     â€š* Description:                                                       *
+     â€š*--------------------------------------------------------------------*
+     â€š* File Declaration                                                   *
+     â€š*--------------------------------------------------------------------*
        Ctl-Opt Option(*nodebugio : *srcstmt) DatFmt(*iso) TimFmt(*hms)
                 DftActGrp(*No) USRPRF(*OWNER);
-     ‚* Display File
+     â€š* Display File
        DCL-F FDRFMFCDD WorkStn(*EXT) USAGE(*INPUT:*OUTPUT) InfDs(IOFBK)
              SFile(WDSSfl:Rrn) SFile(MsgSfl:MsgRrn);
-     ‚*--------------------------------------------------------------------*
-     ‚* Data Structures                                                    *
-     ‚*--------------------------------------------------------------------*
-     ‚* Pssa Data Structure
+     â€š*--------------------------------------------------------------------*
+     â€š* Data Structures                                                    *
+     â€š*--------------------------------------------------------------------*
+     â€š* Pssa Data Structure
        DCL-DS PSSA ExtName('FPSDS') PSDS;
        END-DS;
-     ‚* IO Feedback DS
+     â€š* IO Feedback DS
        DCL-DS IOFBK;
-     ‚*   *File,*Status,*Opcode,*Routine,Src Stmt,*Record,Msgid             IOFDBK
+     â€š*   *File,*Status,*Opcode,*Routine,Src Stmt,*Record,Msgid             IOFDBK
          IRECN BINDEC(4) POS(378);
        END-DS;
-     ‚* Declare Indicators
+     â€š* Declare Indicators
        DCL-S IndicatorP POINTER INZ(%ADDR(*IN));
-     ‚* Indicator Data Structure
+     â€š* Indicator Data Structure
        DCL-DS Indicators BASED(IndicatorP);
          SflDsp IND POS(25);
          SflDspCtl IND;
@@ -43,9 +43,9 @@
          RiSfCmnt IND POS(41);
          Invite IND POS(91);
        END-DS;
-     ‚*----------------------------------------------------------------
-     ‚* Standalone field declaration
-     ‚*----------------------------------------------------------------
+     â€š*----------------------------------------------------------------
+     â€š* Standalone field declaration
+     â€š*----------------------------------------------------------------
        DCL-S Rrn       PACKED(4);
        DCL-S MsgRrn    PACKED(4);
        DCL-S SRrn      PACKED(4);
@@ -67,10 +67,10 @@
        DCL-S TmpFlag   IND;
        DCL-S PMP_DATE  Date;
        DCL-S WKPRD     PACKED(5:0);
-     ‚*----------------------------------------------------------------
-     ‚* Prototype declarations
-     ‚*----------------------------------------------------------------
-    ‚ // Prototype
+     â€š*----------------------------------------------------------------
+     â€š* Prototype declarations
+     â€š*----------------------------------------------------------------
+    â€š // Prototype
        DCL-PR FDRFMFCDDR ExtPgm('FDRFMFCDDR');
          Hldcorp Char(4);
          Hldcus  CHAR(6);
@@ -81,7 +81,7 @@
          HldRet CHAR(1);
        END-PR;
 
-    ‚ // Procedure Interface
+    â€š // Procedure Interface
        DCL-PI FDRFMFCDDR;
          Hldcorp Char(4);
          Hldcus  CHAR(6);
@@ -92,7 +92,7 @@
          HldRet CHAR(1);
        END-PI;
 
-    ‚ // Prototype
+    â€š // Prototype
        DCL-PR SpSndPgm ExtPgm('SPSNDPGM');
          Msgid CHAR(7);
          Msgf CHAR(10);
@@ -105,16 +105,16 @@
          Rpyl CHAR(10);
        END-PR;
 
-    ‚ // Prototype
+    â€š // Prototype
        DCL-PR SpClr ExtPgm('SPCLRMSG');
        END-PR;
 
       //Copy book for Sql error Procedure
        /Copy QRPGLECPY,SPSQLERRCB
-     ‚*******************************************************************
-     ‚* Main Line Processing                                            *
-     ‚*******************************************************************
-    ‚ // Set SQL options
+     â€š*******************************************************************
+     â€š* Main Line Processing                                            *
+     â€š*******************************************************************
+    â€š // Set SQL options
        Exec Sql
         Set Option CloSqlCsr = *EndMod, DATFMT = *ISO, DATSEP = '-';
 
@@ -129,18 +129,18 @@
            ExSr MainDsp;
        EndSl;
        ExSr EndPgm;
-     ‚*
-     ‚*******************************************************************
-     ‚* Processing Display Mode                                         *
-     ‚*******************************************************************
+     â€š*
+     â€š*******************************************************************
+     â€š* Processing Display Mode                                         *
+     â€š*******************************************************************
         BegSr MainDsp;
           ExSr InitDsp;
           ExSr Dcl_Cursor;
           ExSr Clear_Subfile;
           ExSr Load_Subfile;
-     ‚* Displaying of subfile
+     â€š* Displaying of subfile
           DoW *In02  = *Off;
-     ‚* No records then set off the display
+     â€š* No records then set off the display
             Write WNDCMD;
             If Rrn > 0;
               SflDsp = *On;
@@ -148,14 +148,14 @@
               SflDsp = *Off;
               Write NoRcd;
             EndIf;
-     ‚* No records then set off the display
+     â€š* No records then set off the display
             Invite = *On;
             Write WDSCTL;
             Read FDRFMFCDD;
-     ‚* Move IRECN Value
+     â€š* Move IRECN Value
               DspRcdNbr = IRecn;
               Select;
-     ‚* F2-Exit
+     â€š* F2-Exit
                 When *In02  = *On;
                   If TmpFlag = *On;
                      Exec Sql Close FMT_DL_Comments_CSR;
@@ -168,7 +168,7 @@
                      TmpFlag = *Off;
                   EndIf;
                   ExSr EndPgm;
-     ‚* Other
+     â€š* Other
                 Other;
               EndSl;
           EndDo;
@@ -184,25 +184,25 @@
           EndIf;
 
         EndSr;
-     ‚*******************************************************************
-     ‚* Processing Add Mode                                             *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* Processing Add Mode                                             *
+     â€š*******************************************************************
         BegSr MainAdd;
           ExSr InitAdd;
-     ‚* Displaying of subfile
+     â€š* Displaying of subfile
           DoW *In02  = *Off;
               Invite = *On;
               Write WDWADD;
               Read FDRFMFCDD;
               Select;
-     ‚* F2-Exit
+     â€š* F2-Exit
                 When *In02  = *On;
                   ExSr EndPgm;
-     ‚* Other
+     â€š* Other
                 Other;
                     WkErr = 'N';
                     ExSr Validate_Process;
-     ‚* If errors
+     â€š* If errors
                     If WkErr = 'Y';
                       Iter;
                     EndIf;
@@ -216,14 +216,14 @@
              Exsr *PSSR;
           EndIf;
         EndSr;
-     ‚*******************************************************************
-     ‚* Clear - Clearing of the main subfile                         *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* Clear - Clearing of the main subfile                         *
+     â€š*******************************************************************
           BegSr Clear_Subfile;
             SflDsp = *Off;
             SflDspCtl = *Off;
             SflClr = *On;
-     ‚* Clearing of main subfile
+     â€š* Clearing of main subfile
             Write WDSCTL;
             SflDspCtl = *On;
             SflClr = *Off;
@@ -231,13 +231,13 @@
             Rrn  = 0;
             SRrn  = 0;
           EndSr;
-     ‚*******************************************************************
-     ‚* Load - Loading of main subfile                               *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* Load - Loading of main subfile                               *
+     â€š*******************************************************************
           BegSr Load_Subfile;
             WkCount = 0;
             Rrn = SRrn;
-     ‚*  Reading from the file
+     â€š*  Reading from the file
             DoW SqlCode = 0 And RRN < 9999;
                 Exec Sql Fetch Next From FMT_DL_Comments_CSR
                     Into :TmpCmnt, :TmpEntDt, :TmpEntBy;
@@ -261,9 +261,9 @@
             EndDo;
             SRrn   = Rrn;
          EndSr;
-     ‚*******************************************************************
-     ‚* Declare Cursors                                                 *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* Declare Cursors                                                 *
+     â€š*******************************************************************
        BegSr Dcl_Cursor;
 
           Exec Sql Declare FMT_DL_Comments_CSR Cursor For
@@ -284,12 +284,12 @@
              TmpFlag = *On;
           EndIf;
        EndSr;
-     ‚*******************************************************************
-     ‚* Load Subfile fields with values from file                       *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* Load Subfile fields with values from file                       *
+     â€š*******************************************************************
        BegSr LoadVal;
 
-     ‚* Writing of subfile
+     â€š* Writing of subfile
          SfCmnt = TmpCmnt;
          SfEntDt = TmpEntDt;
          SfEntBy = TmpEntBy;
@@ -297,15 +297,15 @@
          Write WDSSFL;
          WkCount = WkCount + 1;
        EndSr;
-     ‚*******************************************************************
-     ‚* Validate_Process - Validating of Comments                       *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* Validate_Process - Validating of Comments                       *
+     â€š*******************************************************************
           BegSr Validate_Process;
-     ‚* Read the window
+     â€š* Read the window
               Clear HldRet;
               RiSfCmnt = *Off;
                 Select;
-     ‚* When window has invalid comment (i.e.Blanks)
+     â€š* When window has invalid comment (i.e.Blanks)
                   When SfCmntAdd = *Blanks;
                     RiSfCmnt = *On;
                  Other;
@@ -350,9 +350,9 @@
                 EndIf;
                 Clear SqlCode;
           EndSr;
-     ‚*******************************************************************
-     ‚* InitAdd  - Initialize Display file fields for Add Mode       *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* InitAdd  - Initialize Display file fields for Add Mode       *
+     â€š*******************************************************************
           BegSr InitAdd;
 
             Sfcorpadd = Hldcorp;
@@ -367,9 +367,9 @@
             ExSr InitMsg;
             Clear SqlCode;
           EndSr;
-     ‚*******************************************************************
-     ‚* InitDsp  - Initialize Display file fields for Display Mode   *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* InitDsp  - Initialize Display file fields for Display Mode   *
+     â€š*******************************************************************
           BegSr InitDsp;
 
             Sfccorp  = Hldcorp;
@@ -383,11 +383,11 @@
             ExSr InitMsg;
             Clear SqlCode;
           EndSr;
-     ‚*******************************************************************
-     ‚* InitMsg  - Initialize Message File Fields                    *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* InitMsg  - Initialize Message File Fields                    *
+     â€š*******************************************************************
           BegSr InitMsg;
-        //‚Initialising Message Subfile variables
+        //â€šInitialising Message Subfile variables
            MsgFile = 'FDRMFMSGF';
            Msglibs = '*LIBL';
            ToMsgqs = '*PRV' ;
@@ -396,9 +396,9 @@
            Rpyque  = *Blanks;
            Rpylib  = *Blanks;
           EndSr;
-     ‚********************************************************************
-     ‚* SndMsg - Subroutine to send messages                          *
-     ‚********************************************************************
+     â€š********************************************************************
+     â€š* SndMsg - Subroutine to send messages                          *
+     â€š********************************************************************
         BegSr SndMsg;
            If MsgIds <> *Blanks;
               SpSndPgm(MsgIds:MsgFile:MsgLibs:MsgData:
@@ -417,16 +417,16 @@
           SPSQLERRSR(#PSPGM:SqlCod:SqlStt:SqlErm:ErrLine:Errmsg:#PSJOB:
                     #PSUSR:#PSJBN:EmlPgmnm:Subgrp);
         Endsr;
-     ‚*******************************************************************
-     ‚* Processing Display Mode                                         *
-     ‚*******************************************************************
+     â€š*******************************************************************
+     â€š* Processing Display Mode                                         *
+     â€š*******************************************************************
         BegSr EndPgm;
           *InLr = *On;
           Return;
         EndSr;
-     ‚*******************************************************************
-      *  ‚*PSSR -  Program Errors Encountered.                          *
-     ‚*******************************************************************
+     â€š*******************************************************************
+      *  â€š*PSSR -  Program Errors Encountered.                          *
+     â€š*******************************************************************
        BegSr *Pssr;
          Exec sql
          Close FMT_DL_Comments_CSR;
