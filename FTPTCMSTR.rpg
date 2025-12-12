@@ -1,0 +1,720 @@
+      *                                                                   *
+      * Name : FTPTMSTR                                                   *
+      *                                                                   *
+      * Description : FTP MAintenace Program                              *
+      *                                                                   *
+      * Date      Programmer        Comment                               *
+      * MM/DD/YY  X. Xxxxxxxx       xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    *
+      * ========  ===========       ===================================   *
+      * 12/27/04  ROSEMARIE VITALES INITIAL DEVELOPMENT                   *
+Y2    *                                                                   *
+      *‚Modifications€                                                   *
+      * -------------------------------------------------------------- - *
+      *‚Changed by :€Ahmad Raza Zaidi       ‚Date:€02/04/11
+      *‚Project    :€                       ‚Task: AZ01
+      *‚Description:€Handled the Error indicator *IN82 to be *ON only    *
+      *              when the record is INACTIVE in ECNMSTF              *
+      * -------------------------------------------------------------- - *
+      *‚Changed by :€Sridevi Ravi           ‚Date:€05/29/19              *
+      *‚Project    :€391868                 ‚Task:                       *
+      *‚Description:€Recompile due to CATRKSF changes.                   *
+      * ---------------------------------------------------------------- *
+      *********************************************************************
+     H
+     FECNMSTF   uF A E           K DISK
+     FECNMSTL4  IF   E           K DISK    RENAME(RECNMST:RECNMST4)
+     FECNMSTL10 IF   E           K DISK    RENAME(RECNMST:RECNMST10)
+     FECNMSTL11 IF   E           K DISK    RENAME(RECNMST:RECNMST11)
+     FECNMSTL17 IF   E           K DISK    RENAME(RECNMST:RECNMST17)
+     FLCUSPRM1  IF   E           K DISK
+     FFTPTCMSTD CF   E             WORKSTN
+     F                                     SFILE(FTPLSFL1:RLSRRN)
+     F                                     INFDS(IOFBK)
+     F*                                    SFILE(MSGSFL:XXRRN)
+      *
+     D STD             S             78    DIM(17) CTDATA PERRCD(1)
+     D EMPNO           S             15  0 DIM(999)
+     D INDS            S              1    DIM(99)
+     D RRN1            S              5  0
+     D IOFBK         E DS                  EXTNAME(FIOFDBK)
+      *KEYENTIFY WHAT KEY PRESSED
+     D   KEY                 369    369
+     D  ICURLN               370    371B 0
+     D  #IROW                370    370
+     D  #ICOL                371    371
+     DPAGRRN                 378    379B 0
+     DNBRRCD                 380    381B 0
+      *
+      *
+     D SCHEDA        E DS                  EXTNAME(CATRKSF)
+      *
+      *
+     D LDA             DS
+      *                ** LDA FIELDS FOR SECURITY SUB-PROGRAM **
+      *   Progname, Y/N;  User Corp Code, Dist Number, User Name, Initials
+     D  LDPGM                401    410
+     D  LDCODE               411    411
+     D  LDCORP               412    415
+     D  LDDIST               416    419
+     D  LDNAME               420    443
+     D  LDINIT               444    446
+      *   Prog Authority:  3 Auth Codes, 3 Limits, 24 Indicators
+     D  LDAUT1               447    448
+     D  LDAUT2               449    450
+     D  LDAUT3               451    452
+     D  LDLIM1               453    456P 0
+     D  LDLIM2               457    460P 0
+     D  LDLIM3               461    464P 0
+     D  LDINDS               465    488
+      *   Device Type in Hex, Character;  Keyboard Type
+     D  LDDVHX               493    493
+     D  LDDVTP               494    495
+     D  LDKBTP               496    496
+      *   System Number, Name;  User Level number;  System Type
+     D  LDMACH               497    500
+     D  LDSYSN               501    510
+     D  LDLEVL               511    512P 0
+     D  LDSYST               513    520
+      *   User's Admin, Region, Area, Reporting District, Company Name
+     D  LDADMN               521    524
+     D  LDREGN               525    528
+     D  LDAREA               529    532
+     D  LDRDST               533    536
+     D  LDCNAM               537    560
+     D  STATM                900    907
+      *
+      *
+     D PSSA           SDS           429
+      *              * * * * * * * * *  PSSA DATA STRUCTURE  * * * * * * *PSSA
+      *                                                                   PSSA
+      ** PGM NAME, STATUS, SRC STMT, PARMS, RPG ROUTINE, MSGID, LIB, MSG**PSSA
+     D  PSPGNM                 1     10
+     D  PSPGSC                11     15  0
+     D  PSPGST                21     28
+     D  PSPGRT                29     36
+     D  PSPARM                37     39  0
+     D  PSPGMI                40     46
+     D  PSPGLB                81     90
+     D* PSPGMS                91    170
+      *           ** LAST FILE USED NAME, STATUS, RPG ROUTINE, SRC STMT **PSSA
+     D  PSLFNM               201    208
+     D  PSLFSC               209    213
+     D  PSLFRT               220    227
+     D  PSLFST               228    235
+      *                              ** JOB NAME, USER NAME, JOB NUMBER **PSSA
+     D  PSJBNM               244    253
+     D  PSJBUS               254    263
+     D  PSJBNR               264    269  0
+      *                                    ** PROGRAM START DATE & TIME **PSSA
+     D  PSMDY                276    281  0
+     D  PSHM                 282    285  0
+      *
+     D DSCOM           DS
+     D  LOCAL                  1      4
+     D  DATA                   5    256
+     D@ENTER           C                   CONST(X'F1')
+     D NullDate        C                   Const('0001-01-01')
+     D Null_Date       S               D   DatFmt(*ISO)
+     d today           s             10d
+      ******************************************************
+      *  MAIN
+      ******************************************************
+     C     *ENTRY        PLIST
+     C                   PARM                    #ind              1
+     C                   PARM                    INFO              2 0
+     C                   PARM                    email            50
+     C                   PARM                    tcpip            39
+     C                   PARM                    techcon          40
+     C                   PARM                    keyno            15 0
+     c     statekey      klist
+     c                   kfld                    code              4
+     C                   if        psparm=0
+      * COMLOC, LDA, and Program Name
+     C     *DTAARA       DEFINE    COMLOC        DSCOM
+     C                   IN        DSCOM
+     C     *DTAARA       DEFINE    *LDA          LDA
+     C                   IN        LDA
+     C     LDPGM         IFNE      'FTPTCMSTR'
+     C                   MOVE      *BLANKS       LDPGM
+     C                   MOVEL     'FTPTCMSTR'   LDPGM
+     C                   OUT       LDA
+     C                   CALL      'SECURITY'
+     C                   IN        LDA
+     C                   END
+     C                   END
+     c                   eval      *in66=*off
+     C                   if        psparm<>0
+     c                   eval      *in66=*on
+     c                   endif
+     C                   movel     nulldate      null_date
+     c                   movel     *date         today
+     C                   MOVEA     LDINDS        *IN(01)
+     C                   EXSR      $CLRSF
+     C                   EXSR      $BLDSF
+     C     *INkb         DOWEQ     *OFF
+     C                   WRITE     FTPLCMD1
+     C     RLSRRN        IFEQ      0
+     C                   MOVE      *OFF          *IN31
+     C                   WRITE     ERRFMT
+     C                   ELSE
+     C                   Z-ADD     RLSRRN        HHRRN
+     C                   ENDIF
+     C                   EXFMT     FTPLCTL1
+     C                   MOVEL     *blank        errmsg           50
+     c                   eval      *in88=*off
+     c                   select
+     c                   when      *inKa=*on
+     c                   eval      *inkb=*on
+     c                   when      *inKE=*on
+     C                   if        *in81=*off
+     C                   eval      *in81=*off
+     c                   else
+     C                   eval      *in81=*on
+     C                   endif
+     C                   EXSR      $CLRSF
+     C                   EXSR      $BLDSF
+     c                   when      *inKi=*on
+     c                             and *in66=*off
+     c                   movel     PSPGNM        pgnm             10
+     c                   movel     PSJBNM        jbnm             10
+     c                   clear                   FTPMAINT
+     c                   clear                   TMPCPIPFLD       39
+     c                   clear                   TMPcust           6
+     c                   clear                   TMPtdesc         60
+     c                   clear                   TMPFTPUSER       10
+     c                   clear                   TMPpass          25
+     c                   clear                   TMPNAME          40
+     c                   clear                   TMPEMAD          50
+     c                   clear                   TMPTEL           10 0
+     c                   clear                   TMPfax           10 0
+     c                   clear                   TMPPROXY          1
+     c                   movel     pgnm          PSPGNM           10
+     c                   movel     jbnm          PSJBNM           10
+     c                   eval      UPROXY='Y'
+     C                   DOW       *INKB=*OFF
+     c                             and *inka=*off
+     c                   eval      *in49=*oFF
+     c                   exfmt     FTPMAINT
+     c                   eval      *in51=*off
+     c                   eval      *in52=*off
+     c                   eval      *in53=*off
+     c                   eval      *in54=*off
+     c                   eval      *in55=*off
+     c                   eval      *in56=*off
+     c                   eval      *in57=*off
+     c                   movel     *blank        message
+     c                   exsr      $editcode
+     C                   IF        ERR<>'Y'   and
+     c                             KEY=@ENTER and
+     c                             TMPCUST   =*blank and
+     c                             TMPCPIPFLD=*blank and
+     c                             TMPtdesc  =*blank and
+     c                             TMPFTPUSER=*blank and
+     c                             TMPpass   =*blank and
+     c                             TMPNAME   =*blank and
+     c                             TMPEMAD   =*blank and
+     c                             TMPTEL    =*ZERO  and
+     c                             TMPfax    =*ZERO  and
+     c                             TMPPROXY  =*blank
+     c                   movel     TPCUST        TMPCUST
+     c                   movel     TCPIPFLD      TMPCPIPFLD
+     c                   movel     TDESC         TMPtdesc
+     c                   movel     FTPUSERID     TMPFTPUSER
+     c                   movel     ftppass       TMPpass
+     c                   movel     CNAME         TMPNAME
+     c                   movel     EMAD          TMPEMAD
+     c                   movel     TELNO         TMPTEL
+     c                   movel     faxno         TMPfax
+     c                   movel     UPROXY        TMPPROXY
+     c                   movel     std(8)        message
+     C                   ELSE
+     C                   IF        KEY=@ENTER
+     c                             and ERR<>'Y'
+     c     *hival        setll     ECNmstl4
+     c                   read      ECNMSTL4                               91
+     c                   if        *in91=*on
+     c                   z-add     1             key#             15 0
+     c                   else
+     c     ECKEY#        add       1             key#
+     c                   endif
+AZ01 C                   Clear                   RECNMST
+     c                   z-add     key#          ECKEY#
+     c                   movel     TPCUST        ECCUST
+     C     tpcust        chain     LCUSPRM1
+     C                   if        %found(LCUSPRM1)
+     c                   movel     CPCNAM        ecname
+     c                   endif
+     c                   movel     TCPIPFLD      ECIPAD
+     c                   movel     TDESC         ECDESC
+     c                   movel     FTPUSERID     ECFTPS
+     C                   CALL      'SPENCR25'
+     C                   PARM                    tmppass
+     C                   PARM                    RESULT           25
+     c                   movel     result        ECFTPP
+     c                   movel     CNAME         ECTNAM
+     c                   movel     CNAME         ECTNAM
+     c                   movel     EMAD          ECEMAD
+     c                   movel     TELNO         ECPHON
+     c                   movel     faxno         ECFAXN
+     c                   movel     UPROXY        EC1A01
+     c                   clear                   ECINDAT
+     C                   write     RECNMST
+     C                   EVAL      *INKB=*ON
+     C                   ENDIF
+     C                   ENDIF
+     C                   ENDDO
+     c                   if        *inkb=*on
+     C                   EVAL      *INKB=*Off
+     c                   else
+     c                   if        *inka=*on
+     C                   EVAL      *INKB=*On
+     c                   endif
+     c                   endif
+     C                   EXSR      $CLRSF
+     C                   EXSR      $BLDSF
+     c                   when      alphaname<>*blank
+     c                   eval      *in88=*on
+     C                   EXSR      $CLRSF
+     C                   EXSR      $BLDSF
+     c                   movel     *blank        alphaname
+     c                   iter
+     c                   other
+     C     *INKB         IFEQ      *OFF
+     C     HHRRN         ANDNE     0
+     C                   EXSR      $VALDT
+     c                   if        *in66=*off
+     C                   EXSR      $CLRSF
+     C                   EXSR      $BLDSF
+     c                   endif
+     c                   endif
+     c                   endsl
+     c                   enddo
+      *
+     C                   MOVE      *ON           *INLR
+     C                   RETURN
+      *
+      *********************************************************************
+     C     $CLRSF        BEGSR
+     C                   MOVE      *OFF          *IN31
+     C*                  MOVE      *OFF          *IN32
+     C                   MOVE      *ON           *IN33
+     C                   WRITE     FTPLCTL1
+     C                   MOVE      *ON           *IN31
+     C*                  MOVE      *ON           *IN32
+     C                   MOVE      *OFF          *IN33
+     C                   ENDSR
+      *********************************************************************
+     C     $BLDSF        BEGSR
+     C                   Z-ADD     0             RLSRRN
+     C                   Z-ADD     0             HHRRN
+     c                   z-add     *zero         tmprrn            5 0
+     c                   movel     *blank        tmpalph          15
+      * READ BY USER/DISTRICT
+     C     *loval        setll     ECNMSTL10
+     C   88alphaname     setll     ECNMSTL10
+     C     *IN90         DOWEQ     *OFF
+     C                   read      ECNMSTL10                              90
+     c   90              LEAVE
+     c                   if        (*in81=*on)
+     c                             and null_date<>ECINDAT
+     c                   iter
+     c                   endif
+     C                   IF        *IN66=*ON
+     C                             AND INFO=0
+     C                             AND ECEMAD=*BLANK
+     C                   ITER
+     C                   ENDIF
+     C                   IF        *IN66=*ON
+     C                             AND INFO=3
+     C                             AND ECIPAD=*BLANK
+     C                   ITER
+     C                   ENDIF
+     c                   EXSR      $MOVRLS
+     C                   ENDDO
+     C     RLSRRN        IFGT      1
+     C                   Z-ADD     1             RLSRRN
+     C                   ENDIF
+CM01 C     SFMODE        IFEQ      '0'
+CM01 C                   mOVE      *ON           *IN36
+CM01 C                   else
+CM01 C                   mOVE      *Off          *IN36
+     c                   endif
+     C                   ENDSR
+      *********************************************************************
+      *********************************************************************
+      *$MOVRLS move release records to subfile                         T
+      *********************************************************************
+     C     $MOVRLS       BEGSR
+     C                   MOVEL     ECKEY#        SCKEY#
+     C                   MOVEL     ECTNAM        SFCONTACT
+     C                   MOVEL     EC1A01        SCPROXY
+     C                   MOVEL     ECCORP        SCCORP
+     C                   MOVEL     ECCUST        SCCUST
+     C                   MOVEL     ECCUST        SFCUST
+     C                   MOVEL     ECTNAM        SFCONTACT
+     C                   MOVEL     ECNAME        SFCUSNAM
+     C                   MOVEL     ECEMAD        SFMAIL
+     C                   MOVEL     ECEMAD        SCMAIL
+     C                   MOVEL     ECIpad        SCTCPIP
+     c                   if        null_date<>ECINDAT
+     c                   eval      *in82=*on
+AZ01 C                   Else
+AZ01 C                   eval      *in82=*off
+     c                   endif
+     C                   ADD       1             RLSRRN
+     C                   ADD       1             HHRRN
+     C                   MOVEL     *BLANKS       SFOPT
+     C                   WRITE     FTPLSFL1
+     C                   ENDSR
+      *********************************************************************
+      *$VALDT This Validates Selected option
+      *********************************************************************
+     C     $VALDT        BEGSR
+      *
+      *
+     C                   EVAL       *IN98 = '0'
+     c                   eval      *in45=*off
+      * Read Subfile
+     C                   DOW       (*IN98 = '0')
+      *
+     C                   READC     FTPLSFL1                               98
+     c                   eval      *in83=*off
+     C                   MOVEL     *OFF          *IN84
+     c                   eval      *in39=*off
+     c                   eval      *inkb=*off
+      *
+     C   98              LEAVE
+     c                   eval      *in51=*off
+     c                   eval      *in52=*off
+     c                   eval      *in53=*off
+     c                   eval      *in54=*off
+     c                   eval      *in56=*off
+     c                   eval      *in55=*off
+     C                   MOVEL     *OFF          *IN84
+     c                   select
+      * Option='1'
+     C                   when      (SFOPT = '1')
+     c                              and *in66=*on
+     c                   movel     SCTCPIP       tcpip
+     c                   movel     SCMAIL        email
+     c                   movel     SCKEY#        keyno
+     c                   movel     Sfcontact     techcon
+     c                   eval      *inka=*on
+     c                   leave
+     C                   when      (SFOPT = '2'
+     c                              and  *in66=*off)
+     c                   movel     PSPGNM        pgnm             10
+     c                   movel     PSJBNM        jbnm             10
+     c                   clear                   FTPMAINT
+     C                   IF        *IN01=*ON
+     C                   MOVEL     *ON           *IN84
+     C                   ENDIF
+     c                   clear                   TMPcust
+     c                   clear                   TMPCPIPFLD       39
+     c                   clear                   TMPtdesc         60
+     c                   clear                   TMPFTPUSER       10
+     c                   clear                   TMPpass          25
+     c                   clear                   TMPNAME          40
+     c                   clear                   TMPEMAD          50
+     c                   clear                   TMPTEL           10 0
+     c                   clear                   TMPfax           10 0
+     c                   clear                   TMPPROXY          1
+     C     SCKEY#        chain     ECNMSTF
+     c                   if        %found(ecnmstf)
+     c                   movel     ECIPAD        TCPIPFLD
+     c                   movel     ECDESC        TDESC
+     c                   movel     ECFTPS        FTPUSERID
+     c                   movel     ECcust        tpcust
+     C                   CALL      'SPDECR25'
+     C                   PARM                    ECFTPP
+     C                   PARM                    RESULT           25
+     c                   movel     RESULT        FTPPASS
+     c                   movel     ECTNAM        CNAME
+     c                   movel     ECEMAD        EMAD
+     c                   movel     ECPHON        TELNO
+     c                   movel     ECFAXN        faxno
+     c                   movel     EC1A01        UPROXY
+     c                   endif
+     c                   eval      ERR='N'
+     c                   movel     pgnm          PSPGNM           10
+     c                   movel     jbnm          PSJBNM           10
+     c                   clear                   TMPCust
+     c                   clear                   TMPCPIPFLD       39
+     c                   clear                   TMPtdesc         60
+     c                   clear                   TMPFTPUSER       10
+     c                   clear                   TMPpass          25
+     c                   clear                   TMPNAME          40
+     c                   clear                   TMPEMAD          50
+     c                   clear                   TMPTEL           10 0
+     c                   clear                   TMPfax           10 0
+     c                   clear                   TMPPROXY          1
+     c                   eval      *in83=*on
+     c                   eval      *in39=*off
+     C                   DOW       *INKB=*OFF
+     c                   eval      *in39=*oFF
+     c                   exfmt     FTPMAINT
+     C                   clear                   result
+     c                   eval      *in51=*off
+     c                   eval      *in52=*off
+     c                   eval      *in53=*off
+     c                   eval      *in54=*off
+     c                   eval      *in55=*off
+     c                   eval      *in56=*off
+     c                   movel     *blank        message
+     c                   movel     *blank        ERR
+     C                   CALL      'SPENCR25'
+     C                   PARM                    FTPPASS
+     C                   PARM                    RESULT           25
+     c                   if        ECIPAD   =    TCPIPFLD   and
+     c                             ECDESC   =    TDESC      and
+     c                             ECcust   =    Tpcust     and
+     c                             ECFTPS   =    FTPUSERID  and
+     c                             ECFTPP   =    result     and
+     c                             ECTNAM   =    CNAME      and
+     c                             ECEMAD   =    EMAD       and
+     c                             ECPHON   =    TELNO      and
+     c                             ECFAXN   =    faxno      and
+     c                             EC1A01   =    UPROXY     and
+     c                             KEY=@ENTER   AND
+     c                             ERR<>'Y'
+     c                   eval       *inkb=*on
+     c                   iter
+     C                   ELSE
+     c                   if        (ECIPAD   <>   TCPIPFLD   or
+     c                             ECDESC   <>   TDESC      or
+     c                             ECcust   <>   Tpcust     or
+     c                             ECFTPS   <>   FTPUSERID  or
+     c                             ECFTPP   <>   RESULT     or
+     c                             ECTNAM   <>   CNAME      or
+     c                             ECEMAD   <>   EMAD       or
+     c                             ECPHON   <>   TELNO      or
+     c                             ECFAXN   <>   faxno      or
+     c                             EC1A01   <>   UPROXY)  AND
+     c                             KEY=@ENTER
+     C                   MOVEL     'N'           ERR
+     c                   movel     *blank        message
+     c                   exsr      $editcode
+     C                   IF        ERR<>'Y'   and
+     c                             KEY=@ENTER and *INKB=*OFF AND
+     c                             TMPCPIPFLD=*blank and
+     c                             TMPtdesc  =*blank and
+     c                             TMPcust   =*blank and
+     c                             TMPFTPUSER=*blank and
+     c                             TMPpass   =*blank and
+     c                             TMPNAME   =*blank and
+     c                             TMPEMAD   =*blank and
+     c                             TMPTEL    =*ZERO  and
+     c                             TMPFAX    =*ZERO  and
+     c                             TMPPROXY  =*blank
+     c                   movel     TPCUST        TMPcust
+     c                   movel     TCPIPFLD      TMPCPIPFLD
+     c                   movel     TDESC         TMPtdesc
+     c                   movel     FTPUSERID     TMPFTPUSER
+     C                   clear                   result
+     C                   CALL      'SPENCR25'
+     C                   PARM                    FTPPASS
+     C                   PARM                    RESULT           25
+     c                   movel     result        TMPpass
+     c                   movel     CNAME         TMPNAME
+     c                   movel     EMAD          TMPEMAD
+     c                   movel     TELNO         TMPTEL
+     c                   movel     faxno         TMPfax
+     c                   movel     UPROXY        TMPPROXY
+     c                   movel     std(8)        message
+     C                   ELSE
+     C                   IF        KEY=@ENTER
+     c                             and ERR<>'Y'
+     c                   movel     TCPIPFLD      ECIPAD
+     c                   movel     TDESC         ECDESC
+     c                   movel     TpCUST        ECcust
+     c                   movel     FTPUSERID     ECFTPS
+     C                   clear                   result
+     C                   CALL      'SPENCR25'
+     C                   PARM                    FTPPASS
+     C                   PARM                    RESULT           25
+     c                   movel     result        ECFTPP
+     c                   movel     CNAME         ECTNAM
+     c                   movel     EMAD          ECEMAD
+     c                   movel     TELNO         ECPHON
+     c                   movel     faxno         ECFAXN
+     c                   movel     UPROXY        EC1A01
+     c                   movel     *date         ECCHDT
+     C                   TIME                    TTIME            12 0
+     c                   movel     ttime         ECCHTM
+     c                   movel     LDINIT        ecchin
+     c                   movel     LDINIT        ecchin
+     C                   UPDATE    RECNMST
+     C                   EVAL      *INKB=*ON
+     C                   ENDIF
+     C                   ENDIF
+     C                   ENDIF
+     C                   ENDIF
+     C                   ENDDO
+     C                   EVAL      *INKB=*OFF
+     C                   when      (SFOPT = '5')
+     C     SCKEY#        chain     ECNMSTF
+     c                   if        %found(ecnmstf)
+     c                   movel     ECcust        TPCUST
+     c                   movel     ECIPAD        TCPIPFLD
+     c                   movel     ECDESC        TDESC
+     c                   movel     ECFTPS        FTPUSERID
+     C                   CALL      'SPDECR25'
+     C                   PARM                    ECFTPP
+     C                   PARM                    RESULT           25
+     c                   movel     result        FTPPASS
+     c                   movel     ECTNAM        CNAME
+     c                   movel     ECEMAD        EMAD
+     c                   movel     ECPHON        TELNO
+     c                   movel     ECFAXN        faxno
+     c                   movel     EC1A01        UPROXY
+     c                   endif
+     C                   DOW       *INKB=*OFF
+     c                   eval      *in39=*on
+     c                   eval      *in83=*on
+     c                   exfmt     FTPMAINT
+     c                   enddo
+     c                   endsl
+     c                   eval      sfopt=*blank
+     C                   UPDATE    FTPLSFL1
+     C                   SETOFF                                       61
+     C                   ENDDO
+     C                   IF        *INKB=*ON
+     C                   EVAL      *INKB=*OFF
+     C                   ENDIF
+     C                   IF        *INKa=*ON
+     C                   EVAL      *INKB=*On
+     C                   ENDIF
+     C                   ENDSR
+      *********************************************************************
+      *$editcode - Check if all fields had been filled-up correctly    T
+      *
+      *********************************************************************
+     C     $editcode     BEGSR
+     c                   eval      *in51=*off
+     c                   eval      *in52=*off
+     c                   eval      *in53=*off
+     c                   eval      *in54=*off
+     c                   eval      *in55=*off
+     c                   eval      *in56=*off
+     c                   eval      *in57=*off
+     c                   movel     'N'           err               1
+     c                   if        TPCUST  =*blank
+     c                   eval      *in57=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(1)        message
+     c                   endif
+     c                   if        TPCUST<>*blank and sfopt=' '
+     C                             and err<>'Y'
+     C     tpcust        chain     LCUSPRM1
+     C                   if        not %found(lcusprm1)
+     c                   eval      *in57=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(1)        message
+     c                   endif
+     c                   endif
+     c                   if        TPCUST<>*blank and sfopt=' '
+     C                             and err<>'Y'
+     C     tpcust        chain     ECNMSTl11
+     C                   if        %found(ecnmstl11)
+     c                   eval      *in56=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(2)        message
+     c                   endif
+     c                   endif
+     c                   if        TCPIPFLD=*blank and err<>'Y'
+     c*                  eval      *in51=*on
+     c*                  eval      ERR='Y'
+     C*                  MOVEL     STD(1)        message
+     c                   endif
+     c                   if        TCPIPFLD<>*blank
+     c                   if        tdesc=*blank and ERR<>'Y'
+     c                   eval      *in52=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(1)        message
+     c                   endif
+     c                   endif
+     c                   if        TCPIPFLD<>*blank
+     c                   if        FTPUSERID=*blank and ERR<>'Y'
+     c                   eval      *in53=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(1)        message
+     c                   endif
+     c                   endif
+     c                   if        TCPIPFLD<>*blank
+     c                   if        FTPPASS=*blank and ERR<>'Y'
+     c                   eval      *in54=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(1)        message
+     c                   endif
+     c                   endif
+     C                   if        TCPIPFLD<>*blank
+     c                   if        FTPPASS=*blank and ERR<>'Y'
+     c                   eval      *in54=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(1)        message
+     c                   endif
+     c                   endif
+     c                   if        CNAME=*blank and ERR<>'Y'
+     c                   eval      *in55=*on
+     c                   eval      ERR='Y'
+     C                   MOVEL     STD(1)        message
+     c                   endif
+     c*                  if        CNAME<>*blank
+     C*                            and sfopt=' '
+     C*    cname         chain     ecnmstl17
+     c*                  if        %found(ECNMSTL17)
+     c*                  eval      *in55=*on
+     c*                  eval      ERR='Y'
+     C*                  MOVEL     STD(2)        message
+     c*                  endif
+     c*                  endif
+     c                   if        EMAD=*blank and ERR<>'Y'
+     c*                  eval      *in56=*on
+     c*                  eval      ERR='Y'
+     C*                  MOVEL     STD(1)        message
+     c                   endif
+     C                   if        *in84=*on
+     C                   if        TCPIPFLD<>*blank
+     C                   if        ERR='N'
+     C                             and uproxy='Y'
+     C                   movel     *BLANK        ftpadd
+     C                   movel     TCPIPFLD      ftpadd
+     C                   call      'DTSBFTPGC'
+     C                   parm                    ftprst           10
+     C                   parm                    FTPUSERID        10
+     C                   parm                    FTPADD           39
+     C                   parm                    FTPPASS          25
+     C                   endif
+     C                   if        ERR='N'
+     C                             and uproxy='N'
+     C                   movel     TCPIPFLD      ftpadd
+     C                   call      'ECNBFTPC'
+     C                   parm                    FTPADD           39
+     C                   parm                    ftprst           10
+     C                   endif
+     C                   if        ftprst='Failure'
+     C                   movel     'Y'           ERR
+     C                   MOVEL     STD(17)       message
+     c                   endif
+     c                   endif
+     c                   endif
+     C                   ENDSR
+      ***************************************************************
+** STD - Standard Messages
+Required Field
+Duplicate record not required
+Email Address should not be blank
+Contact Name should not be blank
+Field should not be blank
+Invalid License Type
+Invalid District
+Press Enter to Save and Exit
+Press Enter to Delete
+Invalid Corp Code. Press F4 to List valid Corp Codes
+Not authorized to change this record
+This email is active licensing corp/state/district maintenance
+This SSO# already exist
+This SSO# does not exist
+Invalid email id.It should have @PENSKE.COM
+Key Employee# and press enter to populate info.
+Invalid FTP Address
