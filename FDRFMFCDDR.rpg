@@ -1,0 +1,439 @@
+     ‚**********************************************************************
+     ‚* €Program Name..:‚FDRFMFCDDR                                         *
+     ‚* €Program Type..:‚SqlRpgle                                          *
+     ‚* €Description...:‚Manual Fuel Outstanding Customers - Add/Display   *
+     ‚* €              :‚Comments                                          *
+     ‚* €Author........:‚Thirulogachandar Mohan                            *
+     ‚* €Creation Date.:‚06/11/2020                                        *
+     ‚* €Project ID....:‚330690M                                           *
+     ‚* €Function......:‚Add/Display Comments                              *
+     ‚**********************************************************************
+     ‚* Modifications                                                      *
+     ‚*--------------------------------------------------------------------*
+     ‚* Changed by :                          Date:                        *
+     ‚* Project#   :                          Tag :                        *
+     ‚* Description:                                                       *
+     ‚*--------------------------------------------------------------------*
+     ‚* File Declaration                                                   *
+     ‚*--------------------------------------------------------------------*
+       Ctl-Opt Option(*nodebugio : *srcstmt) DatFmt(*iso) TimFmt(*hms)
+                DftActGrp(*No) USRPRF(*OWNER);
+     ‚* Display File
+       DCL-F FDRFMFCDD WorkStn(*EXT) USAGE(*INPUT:*OUTPUT) InfDs(IOFBK)
+             SFile(WDSSfl:Rrn) SFile(MsgSfl:MsgRrn);
+     ‚*--------------------------------------------------------------------*
+     ‚* Data Structures                                                    *
+     ‚*--------------------------------------------------------------------*
+     ‚* Pssa Data Structure
+       DCL-DS PSSA ExtName('FPSDS') PSDS;
+       END-DS;
+     ‚* IO Feedback DS
+       DCL-DS IOFBK;
+     ‚*   *File,*Status,*Opcode,*Routine,Src Stmt,*Record,Msgid             IOFDBK
+         IRECN BINDEC(4) POS(378);
+       END-DS;
+     ‚* Declare Indicators
+       DCL-S IndicatorP POINTER INZ(%ADDR(*IN));
+     ‚* Indicator Data Structure
+       DCL-DS Indicators BASED(IndicatorP);
+         SflDsp IND POS(25);
+         SflDspCtl IND;
+         SflClr IND;
+         SflEnd IND;
+         RiSfCmnt IND POS(41);
+         Invite IND POS(91);
+       END-DS;
+     ‚*----------------------------------------------------------------
+     ‚* Standalone field declaration
+     ‚*----------------------------------------------------------------
+       DCL-S Rrn       PACKED(4);
+       DCL-S MsgRrn    PACKED(4);
+       DCL-S SRrn      PACKED(4);
+       DCL-S WkCount   PACKED(4);
+       DCL-S WkErr     CHAR(1);
+       DCL-S Data_Fnd  PACKED(9);
+       DCL-S TmpCmnt   CHAR(100);
+       DCL-S TmpEntDt  DATE;
+       DCL-S TmpEntBy  CHAR(10);
+       DCL-S Msgids    CHAR(7);
+       DCL-S Msgfile   CHAR(10);
+       DCL-S Msglibs   CHAR(10);
+       DCL-S MsgData   CHAR(512);
+       DCL-S Tomsgqs   CHAR(10);
+       DCL-S Tomsgls   CHAR(10);
+       DCL-S Msgtype   CHAR(10);
+       DCL-S Rpyque    CHAR(10);
+       DCL-S Rpylib    CHAR(10);
+       DCL-S TmpFlag   IND;
+       DCL-S PMP_DATE  Date;
+       DCL-S WKPRD     PACKED(5:0);
+     ‚*----------------------------------------------------------------
+     ‚* Prototype declarations
+     ‚*----------------------------------------------------------------
+    ‚ // Prototype
+       DCL-PR FDRFMFCDDR ExtPgm('FDRFMFCDDR');
+         Hldcorp Char(4);
+         Hldcus  CHAR(6);
+         Hldbg   CHAR(2);
+         HLddist CHAR(4);
+         Hldppr  CHAR(5);
+         HldMode CHAR(1);
+         HldRet CHAR(1);
+       END-PR;
+
+    ‚ // Procedure Interface
+       DCL-PI FDRFMFCDDR;
+         Hldcorp Char(4);
+         Hldcus  CHAR(6);
+         Hldbg   CHAR(2);
+         HLddist CHAR(4);
+         Hldppr  CHAR(5);
+         HldMode CHAR(1);
+         HldRet CHAR(1);
+       END-PI;
+
+    ‚ // Prototype
+       DCL-PR SpSndPgm ExtPgm('SPSNDPGM');
+         Msgid CHAR(7);
+         Msgf CHAR(10);
+         Msglib CHAR(10);
+         MsgDTA CHAR(512);
+         Tomsgq CHAR(10);
+         Tomsgl CHAR(10);
+         Msgtyp CHAR(10);
+         Rpyq CHAR(10);
+         Rpyl CHAR(10);
+       END-PR;
+
+    ‚ // Prototype
+       DCL-PR SpClr ExtPgm('SPCLRMSG');
+       END-PR;
+
+      //Copy book for Sql error Procedure
+       /Copy QRPGLECPY,SPSQLERRCB
+     ‚*******************************************************************
+     ‚* Main Line Processing                                            *
+     ‚*******************************************************************
+    ‚ // Set SQL options
+       Exec Sql
+        Set Option CloSqlCsr = *EndMod, DATFMT = *ISO, DATSEP = '-';
+
+       // Populate Email Fields For Sql Error Procedure
+       EmlPgmnm = 'FLTSQLERR';
+       Subgrp = 1;
+
+       Select;
+         When HldMode = 'A';
+           ExSr MainAdd;
+         When HldMode = 'D';
+           ExSr MainDsp;
+       EndSl;
+       ExSr EndPgm;
+     ‚*
+     ‚*******************************************************************
+     ‚* Processing Display Mode                                         *
+     ‚*******************************************************************
+        BegSr MainDsp;
+          ExSr InitDsp;
+          ExSr Dcl_Cursor;
+          ExSr Clear_Subfile;
+          ExSr Load_Subfile;
+     ‚* Displaying of subfile
+          DoW *In02  = *Off;
+     ‚* No records then set off the display
+            Write WNDCMD;
+            If Rrn > 0;
+              SflDsp = *On;
+            Else;
+              SflDsp = *Off;
+              Write NoRcd;
+            EndIf;
+     ‚* No records then set off the display
+            Invite = *On;
+            Write WDSCTL;
+            Read FDRFMFCDD;
+     ‚* Move IRECN Value
+              DspRcdNbr = IRecn;
+              Select;
+     ‚* F2-Exit
+                When *In02  = *On;
+                  If TmpFlag = *On;
+                     Exec Sql Close FMT_DL_Comments_CSR;
+                     If SqlCode <> 0 And SqlCode <> -501;
+                        ErrMsg = 'Failed to close cursor FMT_DL_Comments_CSR.';
+                        ErrLine = 161;
+                        Exsr Call_Sql_Err_Pgm;
+                        Exsr *PSSR;
+                     EndIf;
+                     TmpFlag = *Off;
+                  EndIf;
+                  ExSr EndPgm;
+     ‚* Other
+                Other;
+              EndSl;
+          EndDo;
+          If TmpFlag = *On;
+             Exec Sql Close FMT_DL_Comments_CSR;
+             If SqlCode <> 0 And SqlCode <> -501;
+                ErrMsg = 'Failed to close cursor FMT_DL_Comments_CSR.';
+                ErrLine = 176;
+                Exsr Call_Sql_Err_Pgm;
+                Exsr *PSSR;
+             EndIf;
+             TmpFlag = *Off;
+          EndIf;
+
+        EndSr;
+     ‚*******************************************************************
+     ‚* Processing Add Mode                                             *
+     ‚*******************************************************************
+        BegSr MainAdd;
+          ExSr InitAdd;
+     ‚* Displaying of subfile
+          DoW *In02  = *Off;
+              Invite = *On;
+              Write WDWADD;
+              Read FDRFMFCDD;
+              Select;
+     ‚* F2-Exit
+                When *In02  = *On;
+                  ExSr EndPgm;
+     ‚* Other
+                Other;
+                    WkErr = 'N';
+                    ExSr Validate_Process;
+     ‚* If errors
+                    If WkErr = 'Y';
+                      Iter;
+                    EndIf;
+              EndSl;
+          EndDo;
+          Exec Sql Close FMT_DL_Comments_CSR;
+          If SqlCode <> 0 And SqlCode <> -501;
+             ErrMsg = 'Failed to close cursor FMT_DL_Comments_CSR.';
+             ErrLine = 211;
+             Exsr Call_Sql_Err_Pgm;
+             Exsr *PSSR;
+          EndIf;
+        EndSr;
+     ‚*******************************************************************
+     ‚* Clear - Clearing of the main subfile                         *
+     ‚*******************************************************************
+          BegSr Clear_Subfile;
+            SflDsp = *Off;
+            SflDspCtl = *Off;
+            SflClr = *On;
+     ‚* Clearing of main subfile
+            Write WDSCTL;
+            SflDspCtl = *On;
+            SflClr = *Off;
+            SflEnd = *Off;
+            Rrn  = 0;
+            SRrn  = 0;
+          EndSr;
+     ‚*******************************************************************
+     ‚* Load - Loading of main subfile                               *
+     ‚*******************************************************************
+          BegSr Load_Subfile;
+            WkCount = 0;
+            Rrn = SRrn;
+     ‚*  Reading from the file
+            DoW SqlCode = 0 And RRN < 9999;
+                Exec Sql Fetch Next From FMT_DL_Comments_CSR
+                    Into :TmpCmnt, :TmpEntDt, :TmpEntBy;
+                If SqlCode <> 0 And SqlCode <> 100;
+                   ErrMsg = 'Failed to fetch from cursor FMT_DL_Comments_CSR.';
+                   ErrLine = 242;
+                   Exsr Call_Sql_Err_Pgm;
+                   Exsr *PSSR;
+                EndIf;
+
+                If SQLCODE <> 0;
+                   SflEnd = *On;
+                   Leave;
+                EndIf;
+
+                ExSr LoadVal;
+
+                If WkCount  = 1;
+                   DspRcdNbr = RRN;
+                EndIf;
+            EndDo;
+            SRrn   = Rrn;
+         EndSr;
+     ‚*******************************************************************
+     ‚* Declare Cursors                                                 *
+     ‚*******************************************************************
+       BegSr Dcl_Cursor;
+
+          Exec Sql Declare FMT_DL_Comments_CSR Cursor For
+                 Select DCCMNT, Date(DCCDAT), DCCRTBY
+                 From FMTDLCMTF
+                 Where DCCORP = :Hldcorp and DCCUST = :Hldcus and
+                       DCBGRP = :Hldbg   and DCDIST = :Hlddist
+                 Order by DCCORP,DCCUST,DCBGRP,DCDIST;
+
+          If TmpFlag = *Off;
+             Exec Sql Open FMT_DL_Comments_CSR;
+             If SqlCode <> 0 And SqlCode <> 100;
+                ErrMsg = 'Failed to open cursor FMT_DL_Comments_CSR.';
+                ErrLine = 277;
+                Exsr Call_Sql_Err_Pgm;
+                Exsr *PSSR;
+             EndIf;
+             TmpFlag = *On;
+          EndIf;
+       EndSr;
+     ‚*******************************************************************
+     ‚* Load Subfile fields with values from file                       *
+     ‚*******************************************************************
+       BegSr LoadVal;
+
+     ‚* Writing of subfile
+         SfCmnt = TmpCmnt;
+         SfEntDt = TmpEntDt;
+         SfEntBy = TmpEntBy;
+         Rrn  = Rrn + 1;
+         Write WDSSFL;
+         WkCount = WkCount + 1;
+       EndSr;
+     ‚*******************************************************************
+     ‚* Validate_Process - Validating of Comments                       *
+     ‚*******************************************************************
+          BegSr Validate_Process;
+     ‚* Read the window
+              Clear HldRet;
+              RiSfCmnt = *Off;
+                Select;
+     ‚* When window has invalid comment (i.e.Blanks)
+                  When SfCmntAdd = *Blanks;
+                    RiSfCmnt = *On;
+                 Other;
+                    MsgIds  =' ';
+                    Exsr SndMsg;
+                EndSl;
+                If WkErr  = 'N' And RiSfCmnt = *On;
+                  WkErr  = 'Y';
+                EndIf;
+                If WkErr <> 'Y';
+                   Clear Data_Fnd;
+                   //Check if record exists
+                   Exec Sql Select Count(1) Into :Data_Fnd
+                     From FMTDLCMTF where DCCORP = :Hldcorp and
+                      DCCUST = :Hldcus and DCBGRP = :Hldbg and
+                      DCDIST = :Hlddist fetch first row only;
+                   If SqlCode <> 0 And SqlCode <> 100;
+                      ErrMsg = 'Failed to get count from FMTDLCMTF.';
+                      ErrLine = 321;
+                      Exsr Call_Sql_Err_Pgm;
+                      Exsr *PSSR;
+                   EndIf;
+
+                   Select;
+                     When SqlCode = 0;
+
+                       Exec Sql Insert Into FMTDLCMTF
+                         (DCCORP, DCCUST, DCBGRP, DCDIST, DCPERD, DCCMNT,
+                          DCCRTBY)
+                          Values (:Hldcorp, :Hldcus, :Hldbg, :Hlddist,
+                           :Hldppr, :SfCmntAdd, :TmpEntBy);
+                       If SqlCode <> 0 And SqlCode <> 100;
+                          ErrMsg = 'Failed to insert record into FMTDLCMTF.';
+                          ErrLine = 335;
+                          Exsr Call_Sql_Err_Pgm;
+                          Exsr *PSSR;
+                       EndIf;
+
+                       HldRet = 'A';
+                       ExSr EndPgm;
+                  EndSl;
+                EndIf;
+                Clear SqlCode;
+          EndSr;
+     ‚*******************************************************************
+     ‚* InitAdd  - Initialize Display file fields for Add Mode       *
+     ‚*******************************************************************
+          BegSr InitAdd;
+
+            Sfcorpadd = Hldcorp;
+            Sfcustadd = Hldcus;
+            SfbillAdd = Hldbg;
+            TmpEntBy  = #PSUSR;
+            Sfdistadd = Hlddist;
+            Wkprd     = %Dec(Hldppr:5:0);
+            Pmp_date  = %date((Wkprd * 100 + 01):*cymd);
+            Sfprocadd = %Subdt(Pmp_date:*M) * 10000 + %SubDt(Pmp_Date:*Y);
+
+            ExSr InitMsg;
+            Clear SqlCode;
+          EndSr;
+     ‚*******************************************************************
+     ‚* InitDsp  - Initialize Display file fields for Display Mode   *
+     ‚*******************************************************************
+          BegSr InitDsp;
+
+            Sfccorp  = Hldcorp;
+            Sfcnam   = Hldcus;
+            Sfbill   = Hldbg;
+            Sfdist   = Hlddist;
+            Wkprd    = %Dec(Hldppr:5:0);
+            Pmp_date = %date((Wkprd * 100 + 01):*cymd);
+            Sfcppr   = %Subdt(Pmp_date:*M) * 10000 + %SubDt(Pmp_Date:*Y);
+
+            ExSr InitMsg;
+            Clear SqlCode;
+          EndSr;
+     ‚*******************************************************************
+     ‚* InitMsg  - Initialize Message File Fields                    *
+     ‚*******************************************************************
+          BegSr InitMsg;
+        //‚Initialising Message Subfile variables
+           MsgFile = 'FDRMFMSGF';
+           Msglibs = '*LIBL';
+           ToMsgqs = '*PRV' ;
+           ToMsgls = '*';
+           Msgtype = '*INFO';
+           Rpyque  = *Blanks;
+           Rpylib  = *Blanks;
+          EndSr;
+     ‚********************************************************************
+     ‚* SndMsg - Subroutine to send messages                          *
+     ‚********************************************************************
+        BegSr SndMsg;
+           If MsgIds <> *Blanks;
+              SpSndPgm(MsgIds:MsgFile:MsgLibs:MsgData:
+                    ToMsgqs:ToMsgls:MsgType:Rpyque:Rpylib);
+           Else;
+             Spclr();
+           EndIf;
+        Endsr;
+      *-----------------------------------------------------------------------*
+      * Routine :  Call_Sql_Err_Pgm
+      * Function:  Call Sql Error Program SPSQLERRSR
+      *-----------------------------------------------------------------------*
+        BegSr Call_Sql_Err_Pgm;
+
+           //procedure to log the sql error
+          SPSQLERRSR(#PSPGM:SqlCod:SqlStt:SqlErm:ErrLine:Errmsg:#PSJOB:
+                    #PSUSR:#PSJBN:EmlPgmnm:Subgrp);
+        Endsr;
+     ‚*******************************************************************
+     ‚* Processing Display Mode                                         *
+     ‚*******************************************************************
+        BegSr EndPgm;
+          *InLr = *On;
+          Return;
+        EndSr;
+     ‚*******************************************************************
+      *  ‚*PSSR -  Program Errors Encountered.                          *
+     ‚*******************************************************************
+       BegSr *Pssr;
+         Exec sql
+         Close FMT_DL_Comments_CSR;
+         If SqlCode <> 0 And SqlCode <> -501;
+            ErrMsg = 'Failed to close cursor FMT_DL_Comments_CSR.';
+            ErrLine = 432;
+            Exsr Call_Sql_Err_Pgm;
+         EndIf;
+         *Inlr = *On;
+       EndSr;
